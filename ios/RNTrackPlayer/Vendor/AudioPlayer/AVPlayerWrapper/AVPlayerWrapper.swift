@@ -152,7 +152,8 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
     }
 
     func load(from url: URL, playWhenReady: Bool) {
-        reset(soft: true)
+        print("load", url)
+		reset(soft: true)
         _playWhenReady = playWhenReady
         _state = .loading
 
@@ -167,6 +168,50 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
         playerObserver.startObserving()
         playerItemNotificationObserver.startObserving(item: currentItem)
         playerItemObserver.startObserving(item: currentItem)
+    }
+
+	func loadAsync(from url: URL, playWhenReady: Bool) {
+        print("load from: ", url)
+		//https://stackoverflow.com/questions/20581567/avplayer-and-avfoundationerrordomain-code-11819/21286880
+		//https://developer.apple.com/documentation/avfoundation/avasynchronouskeyvalueloading/1387321-loadvaluesasynchronously
+		//[Constants.assetPlayableKey, "duration", "metadata", "hasProtectedContent"]
+
+		
+		reset(soft: true)
+        _playWhenReady = playWhenReady
+        _state = .loading
+
+        // Set item
+        let currentAsset = AVURLAsset(url: url)
+		currentAsset.loadValuesAsynchronously(forKeys: [Constants.assetPlayableKey]) {
+			var error: NSError? = nil
+			let status = currentAsset.statusOfValue(forKey: Constants.assetPlayableKey, error: &error)
+			switch status {
+			case .loaded:
+			// Sucessfully loaded, continue processing
+				print("status: loaded")
+				let currentItem = AVPlayerItem(asset: currentAsset, automaticallyLoadedAssetKeys: [Constants.assetPlayableKey])
+                currentItem.preferredForwardBufferDuration = self.bufferDuration
+                self.avPlayer.replaceCurrentItem(with: currentItem)
+
+				// Register for events
+                self.playerTimeObserver.registerForBoundaryTimeEvents()
+                self.playerObserver.startObserving()
+                self.playerItemNotificationObserver.startObserving(item: currentItem)
+                self.playerItemObserver.startObserving(item: currentItem)
+				
+			case .failed:
+			// Examine NSError pointer to determine failure
+				print("status: failed")
+			case .cancelled:
+			// Loading cancelled
+				print("status: cancelled")
+			default:
+			// Handle all other cases
+				print("status: other")
+			}
+		}
+
     }
     
     // MARK: - Util
