@@ -47,7 +47,9 @@ export default class LandingScreen extends Component {
       });
       await TrackPlayer.play();
     } else {
-      if (PlayerStore.playbackState === TrackPlayer.STATE_PAUSED) {
+      if (PlayerStore.playbackState === TrackPlayer.STATE_PAUSED || 
+          PlayerStore.playbackState === TrackPlayer.STATE_NONE ||
+          PlayerStore.playbackState === TrackPlayer.STATE_STOPPED) {
         await TrackPlayer.play();
       } else {
         await TrackPlayer.pause();

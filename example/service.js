@@ -12,6 +12,10 @@ import TrackPlayer from 'react-native-track-player';
 
 module.exports = async function() {
 
+  TrackPlayer.addEventListener('playback-error', (data) => {
+    console.log('playback-error', data)
+  })
+
   TrackPlayer.addEventListener('remote-play', () => {
     TrackPlayer.play()
   })
