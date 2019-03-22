@@ -39,6 +39,20 @@ export default class LandingScreen extends Component {
       await TrackPlayer.reset();
       await TrackPlayer.add(playlistData);
       await TrackPlayer.add({
+        id: "1234",
+        url: "https://livestage.curiousmedia.com/public/pin/audio/problem-track-with-image-metadata.mp3",
+        title: "Problem Track With Image Data",
+        artist: "Fails To Load",
+        artwork: "https://picsum.photos/201"
+      });
+      await TrackPlayer.add({
+        id: "4321",
+        url: "https://livestage.curiousmedia.com/public/pin/audio/problem-track-without-image-metadata.mp3",
+        title: "Problem Track Without Image Data",
+        artist: "Loads Fine",
+        artwork: "https://picsum.photos/202"
+      });
+      await TrackPlayer.add({
         id: 'local-track',
         url: localTrack,
         title: 'Pure (Demo)',
