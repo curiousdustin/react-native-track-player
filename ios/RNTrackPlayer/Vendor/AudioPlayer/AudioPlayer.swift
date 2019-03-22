@@ -298,6 +298,7 @@ public class AudioPlayer: AVPlayerWrapperDelegate {
     }
     
     func AVWrapper(failedWithError error: Error?) {
+		print("AVWrapper failed with Error: ", error)
         self.delegate?.audioPlayer(failedWithError: error)
     }
     
