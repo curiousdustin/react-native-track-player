@@ -10,63 +10,23 @@ import Foundation
 import MediaPlayer
 
 @objc(RNTrackPlayer)
-public class RNTrackPlayer: RCTEventEmitter, AudioPlayerDelegate {
+public class RNTrackPlayer: RCTEventEmitter {
+    
+    // MARK: - Attributes
+
     private lazy var player: QueuedAudioPlayer = {
         let player = QueuedAudioPlayer()
-        
-        player.delegate = self
         player.bufferDuration = 1
-        player.automaticallyWaitsToMinimizeStalling = false
-        
         return player
     }()
     
+    // MARK: - Lifecycle Methods
     
-    // MARK: - AudioPlayerDelegate
-    
-    public func audioPlayer(playerDidChangeState state: AudioPlayerState) {
-        guard !isTesting else { return }
-        sendEvent(withName: "playback-state", body: ["state": player.playerState.rawValue])
+    deinit {
+        reset(resolve: { _ in }, reject: { _, _, _  in })
     }
     
-    public func audioPlayer(itemPlaybackEndedWithReason reason: PlaybackEndedReason) {
-        if reason == .playedUntilEnd && player.nextItems.count == 0 {
-            sendEvent(withName: "playback-queue-ended", body: [
-                "track": (player.currentItem as? Track)?.id,
-                "position": player.currentTime,
-            ])
-        } else if reason == .playedUntilEnd {
-            sendEvent(withName: "playback-track-changed", body: [
-                "track": (player.currentItem as? Track)?.id,
-                "position": player.currentTime,
-                "nextTrack": (player.nextItems.first as? Track)?.id,
-            ])
-        }
-    }
-    
-    public func audioPlayer(secondsElapsed seconds: Double) {}
-    
-    public func audioPlayer(failedWithError error: Error?) {
-        guard !isTesting else { return }
-        sendEvent(withName: "playback-error", body: ["error": error?.localizedDescription])
-    }
-    
-    public func audioPlayer(seekTo seconds: Int, didFinish: Bool) {}
-    
-    public func audioPlayer(didUpdateDuration duration: Double) {}
-    
-    private let isTesting = { () -> Bool in
-        if let _ = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] {
-            return true
-        } else if let testingEnv = ProcessInfo.processInfo.environment["DYLD_INSERT_LIBRARIES"] {
-            return testingEnv.contains("libXCTTargetBootstrapInject.dylib")
-        } else {
-            return false
-        }
-    }()
-    
-    
-    // MARK: - Required Methods
+    // MARK: - RCTEventEmitter
     
     override public static func requiresMainQueueSetup() -> Bool {
         return true;
@@ -76,6 +36,7 @@ public class RNTrackPlayer: RCTEventEmitter, AudioPlayerDelegate {
     override public func constantsToExport() -> [AnyHashable: Any] {
         return [
             "STATE_NONE": AVPlayerWrapperState.idle.rawValue,
+            "STATE_READY": AVPlayerWrapperState.ready.rawValue,
             "STATE_PLAYING": AVPlayerWrapperState.playing.rawValue,
             "STATE_PAUSED": AVPlayerWrapperState.paused.rawValue,
             "STATE_STOPPED": AVPlayerWrapperState.idle.rawValue,
@@ -130,11 +91,58 @@ public class RNTrackPlayer: RCTEventEmitter, AudioPlayerDelegate {
     
     @objc(setupPlayer:resolver:rejecter:)
     public func setupPlayer(config: [String: Any], resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            reject("setup_audio_session_failed", "Failed to setup audio session", error)
+        // configure if player waits to play
+        let autoWait: Bool = config["waitForBuffer"] as? Bool ?? false
+        player.automaticallyWaitsToMinimizeStalling = autoWait
+        
+        // configure audio session - category, options & mode
+        var sessionCategory: AVAudioSession.Category = .playback
+        var sessionCategoryOptions: AVAudioSession.CategoryOptions = []
+        var sessionCategoryMode: AVAudioSession.Mode = .default
+
+        if
+            let sessionCategoryStr = config["iosCategory"] as? String,
+            let mappedCategory = SessionCategory(rawValue: sessionCategoryStr) {
+                sessionCategory = mappedCategory.mapConfigToAVAudioSessionCategory()
+        }
+        
+        let sessionCategoryOptsStr = config["iosCategoryOptions"] as? [String]
+        let mappedCategoryOpts = sessionCategoryOptsStr?.compactMap { SessionCategoryOptions(rawValue: $0)?.mapConfigToAVAudioSessionCategoryOptions() } ?? []
+        sessionCategoryOptions = AVAudioSession.CategoryOptions(mappedCategoryOpts)
+        
+        if
+            let sessionCategoryModeStr = config["iosCategoryMode"] as? String,
+            let mappedCategoryMode = SessionCategoryMode(rawValue: sessionCategoryModeStr) {
+                sessionCategoryMode = mappedCategoryMode.mapConfigToAVAudioSessionCategoryMode()
+        }
+        
+        try? AVAudioSession.sharedInstance().setCategory(sessionCategory, mode: sessionCategoryMode, options: sessionCategoryOptions)
+        
+        
+        // setup event listeners
+        player.event.stateChange.addListener(self) { [weak self] state in
+            self?.sendEvent(withName: "playback-state", body: ["state": state.rawValue])
+        }
+        
+        player.event.fail.addListener(self) { [weak self] error in
+            self?.sendEvent(withName: "playback-error", body: ["error": error?.localizedDescription])
+        }
+        
+        player.event.playbackEnd.addListener(self) { [weak self] reason in
+            guard let `self` = self else { return }
+
+            if reason == .playedUntilEnd && self.player.nextItems.count == 0 {
+                self.sendEvent(withName: "playback-queue-ended", body: [
+                    "track": (self.player.currentItem as? Track)?.id,
+                    "position": self.player.currentTime,
+                    ])
+            } else if reason == .playedUntilEnd {
+               self.sendEvent(withName: "playback-track-changed", body: [
+                    "track": (self.player.currentItem as? Track)?.id,
+                    "position": self.player.currentTime,
+                    "nextTrack": (self.player.nextItems.first as? Track)?.id,
+                    ])
+            }
         }
         
         resolve(NSNull())
@@ -147,9 +155,8 @@ public class RNTrackPlayer: RCTEventEmitter, AudioPlayerDelegate {
     
     @objc(updateOptions:resolver:rejecter:)
     public func update(options: [String: Any], resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
-        let castedCapabilities = (options["capabilities"] as? [String])
-        let supportedCapabilities = castedCapabilities?.filter { Capability(rawValue: $0) != nil }
-        let capabilities = supportedCapabilities?.compactMap { Capability(rawValue: $0) } ?? []
+        let capabilitiesStr = options["capabilities"] as? [String]
+        let capabilities = capabilitiesStr?.compactMap { Capability(rawValue: $0) } ?? []
         
         let remoteCommands = capabilities.map { $0.mapToPlayerCommand(jumpInterval: options["jumpInterval"] as? NSNumber) }
         player.remoteCommands.removeAll()
@@ -223,7 +230,11 @@ public class RNTrackPlayer: RCTEventEmitter, AudioPlayerDelegate {
     }
     
     @objc(add:before:resolver:rejecter:)
-    public func add(trackDicts: [[String: Any]], before trackId: String?, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+    public func add(trackDicts: [[String: Any]], before trackId: String?, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            UIApplication.shared.beginReceivingRemoteControlEvents();
+        }
+
         var tracks = [Track]()
         for trackDict in trackDicts {
             guard let track = Track(dictionary: trackDict) else {
@@ -341,19 +352,23 @@ public class RNTrackPlayer: RCTEventEmitter, AudioPlayerDelegate {
         print("Resetting player.")
         player.stop()
         resolve(NSNull())
+        DispatchQueue.main.async {
+            UIApplication.shared.endReceivingRemoteControlEvents();
+        }
     }
     
     @objc(play:rejecter:)
     public func play(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
         print("Starting/Resuming playback")
-        try? player.play()
+        try? AVAudioSession.sharedInstance().setActive(true)
+        player.play()
         resolve(NSNull())
     }
     
     @objc(pause:rejecter:)
     public func pause(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
         print("Pausing playback")
-        try? player.pause()
+        player.pause()
         resolve(NSNull())
     }
     
@@ -367,7 +382,7 @@ public class RNTrackPlayer: RCTEventEmitter, AudioPlayerDelegate {
     @objc(seekTo:resolver:rejecter:)
     public func seek(to time: Double, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
         print("Seeking to \(time) seconds")
-        try? player.seek(to: time)
+        player.seek(to: time)
         resolve(NSNull())
     }
     
@@ -437,5 +452,32 @@ public class RNTrackPlayer: RCTEventEmitter, AudioPlayerDelegate {
     @objc(getState:rejecter:)
     public func getState(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
         resolve(player.playerState.rawValue)
+    }
+    
+    @objc(updateMetadataForTrack:properties:resolver:rejecter:)
+    public func updateMetadata(for trackId: String, properties: [String: Any], resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+        guard let track = player.queueManager.items.first(where: { ($0 as! Track).id == trackId }) as? Track
+            else {
+                reject("track_not_in_queue", "Given track ID was not found in queue", nil)
+                return
+        }
+        
+        track.updateMetadata(dictionary: properties)
+        if (player.currentItem as! Track).id == track.id {
+            player.nowPlayingInfoController.set(keyValues: [
+                MediaItemProperty.artist(track.artist),
+                MediaItemProperty.title(track.title),
+                MediaItemProperty.albumTitle(track.album),
+            ])
+            
+            track.getArtwork { [weak self] image in
+                if let image = image {
+                    let artwork = MPMediaItemArtwork(boundsSize: image.size, requestHandler: { (size) -> UIImage in
+                        return image
+                    })
+                    self?.player.nowPlayingInfoController.set(keyValue: MediaItemProperty.artwork(artwork))
+                }
+            }
+        }
     }
 }
