@@ -306,6 +306,13 @@ public class AudioPlayer: AVPlayerWrapperDelegate {
     
     func AVWrapper(failedWithError error: Error?) {
         self.delegate?.audioPlayer(failedWithError: error)
+        
+        // When AVPlayer status becomes .failed,
+        // the instance can no longer be used.
+        // A new instance must be created.
+        // https://developer.apple.com/documentation/avfoundation/avplayer/1388096-status
+        self._wrapper = AVPlayerWrapper(avPlayer: AVPlayer())        
+        self._wrapper.delegate = self
     }
     
     func AVWrapper(seekTo seconds: Int, didFinish: Bool) {
