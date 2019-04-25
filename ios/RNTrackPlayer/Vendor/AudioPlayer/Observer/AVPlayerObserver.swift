@@ -36,7 +36,7 @@ class AVPlayerObserver: NSObject {
         static let timeControlStatus = #keyPath(AVPlayer.timeControlStatus)
     }
     
-    let player: AVPlayer
+    var player: AVPlayer
     private let statusChangeOptions: NSKeyValueObservingOptions = [.new, .initial]
     private let timeControlStatusChangeOptions: NSKeyValueObservingOptions = [.new]
     var isObserving: Bool = false
@@ -54,6 +54,16 @@ class AVPlayerObserver: NSObject {
         }
     }
     
+    func setPlayer(player: AVPlayer) {
+        if self.isObserving {
+            self.player.removeObserver(self, forKeyPath: AVPlayerKeyPath.status, context: &AVPlayerObserver.context)
+            self.player.removeObserver(self, forKeyPath: AVPlayerKeyPath.timeControlStatus, context: &AVPlayerObserver.context)
+        }
+
+        self.player = player
+        self.isObserving = false
+    }
+
     /**
      Start receiving events from this observer.
      

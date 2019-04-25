@@ -54,6 +54,16 @@ public class RNTrackPlayer: RCTEventEmitter, AudioPlayerDelegate {
     public func audioPlayer(seekTo seconds: Int, didFinish: Bool) {}
     
     public func audioPlayer(didUpdateDuration duration: Double) {}
+
+    public func audioPlayerResetAudioSession() {
+        // Reset the audio session category because there was a failure to play a track.
+        // If the category is not reset, it seems to behave like the default category
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+        } catch {
+            print("Failed to reset audio session category", error)
+        }
+    }
     
     private let isTesting = { () -> Bool in
         if let _ = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] {

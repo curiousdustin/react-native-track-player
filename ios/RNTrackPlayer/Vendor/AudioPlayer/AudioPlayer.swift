@@ -24,6 +24,8 @@ public protocol AudioPlayerDelegate: class {
     
     func audioPlayer(didUpdateDuration duration: Double)
 
+    func audioPlayerResetAudioSession()
+
 }
 
 public class AudioPlayer: AVPlayerWrapperDelegate {
@@ -323,5 +325,8 @@ public class AudioPlayer: AVPlayerWrapperDelegate {
     func AVWrapper(didUpdateDuration duration: Double) {
         self.delegate?.audioPlayer(didUpdateDuration: duration)
     }
-    
+
+    func AVWrapperResetAudioSession() {
+        self.delegate?.audioPlayerResetAudioSession()
+    }
 }

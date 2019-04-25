@@ -16,5 +16,6 @@ protocol AVPlayerWrapperDelegate: class {
     func AVWrapper(failedWithError error: Error?)
     func AVWrapper(seekTo seconds: Int, didFinish: Bool)
     func AVWrapper(didUpdateDuration duration: Double)
+    func AVWrapperResetAudioSession()
     
 }

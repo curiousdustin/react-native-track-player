@@ -26,9 +26,9 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
     
     // MARK: - Properties
     
-    let avPlayer: AVPlayer
-    let playerObserver: AVPlayerObserver
-    let playerTimeObserver: AVPlayerTimeObserver
+    var avPlayer: AVPlayer
+    var playerObserver: AVPlayerObserver
+    var playerTimeObserver: AVPlayerTimeObserver
     let playerItemNotificationObserver: AVPlayerItemNotificationObserver
     let playerItemObserver: AVPlayerItemObserver
 
@@ -180,11 +180,36 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
         playerTimeObserver.unregisterForBoundaryTimeEvents()
         playerItemNotificationObserver.stopObservingCurrentItem()
         
+        //if the status of the current (about to be previous) item is .failed,
+        //we know that we need to reset
+        if (currentItem?.status == .failed) {
+            resetAfterFailure()
+        }
+
         if !soft {
             avPlayer.replaceCurrentItem(with: nil)
         }
     }
-    
+
+    private func resetAfterFailure() {
+        //reset time observer just in case
+        playerTimeObserver.unregisterForPeriodicEvents()
+        
+        // When AVPlayer status becomes .failed,
+        // the instance can no longer be used.
+        // A new instance must be created.
+        // https://developer.apple.com/documentation/avfoundation/avplayer/1388096-status
+        self.avPlayer = AVPlayer()
+        
+        //observe the new player instance
+        self.playerObserver.setPlayer(player: self.avPlayer)
+        self.playerTimeObserver.setPlayer(player: self.avPlayer, periodicObserverTimeInterval: timeEventFrequency.getTime())
+        self.playerTimeObserver.registerForPeriodicTimeEvents()
+
+        //have delegates reset the audio session to whatever they intend to use
+        self.delegate?.AVWrapperResetAudioSession()
+    }
+
 }
 
 extension AVPlayerWrapper: AVPlayerObserverDelegate {
@@ -218,6 +243,7 @@ extension AVPlayerWrapper: AVPlayerObserverDelegate {
             break
 
         case .failed:
+            print("player status is .failed, will need to reset before playing again")
             self.delegate?.AVWrapper(failedWithError: avPlayer.error)
             break
             
