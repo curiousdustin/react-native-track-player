@@ -48,8 +48,22 @@ public class RNTrackPlayer: RCTEventEmitter, AudioPlayerDelegate {
     
     public func audioPlayer(failedWithError error: Error?) {
         guard !isTesting else { return }
-        sendEvent(withName: "playback-error", body: ["error": error?.localizedDescription])
-    }
+        
+        guard let e = error as? NSError else {
+            sendEvent(withName: "playback-error", body: [
+                "error": error?.localizedDescription,
+                "message": error?.localizedDescription,
+                ])
+            return
+        }
+
+        sendEvent(withName: "playback-error", body: [
+            "error": e.localizedDescription,
+            "code": e.code,
+            "message": e.localizedDescription,
+            "domain": e.domain,
+        ])
+	}
     
     public func audioPlayer(seekTo seconds: Int, didFinish: Bool) {}
     
