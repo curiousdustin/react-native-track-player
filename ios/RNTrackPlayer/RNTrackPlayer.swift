@@ -27,6 +27,75 @@ public class RNTrackPlayer: RCTEventEmitter {
     }
     
     // MARK: - RCTEventEmitter
+    // MARK: - AudioPlayerDelegate
+    
+    public func audioPlayer(playerDidChangeState state: AudioPlayerState) {
+        guard !isTesting else { return }
+        sendEvent(withName: "playback-state", body: ["state": player.playerState.rawValue])
+    }
+    
+    public func audioPlayer(itemPlaybackEndedWithReason reason: PlaybackEndedReason) {
+        if reason == .playedUntilEnd && player.nextItems.count == 0 {
+            sendEvent(withName: "playback-queue-ended", body: [
+                "track": (player.currentItem as? Track)?.id,
+                "position": player.currentTime,
+            ])
+        } else if reason == .playedUntilEnd {
+            sendEvent(withName: "playback-track-changed", body: [
+                "track": (player.currentItem as? Track)?.id,
+                "position": player.currentTime,
+                "nextTrack": (player.nextItems.first as? Track)?.id,
+            ])
+        }
+    }
+    
+    public func audioPlayer(secondsElapsed seconds: Double) {}
+    
+    public func audioPlayer(failedWithError error: Error?) {
+        guard !isTesting else { return }
+        
+        guard let e = error as? NSError else {
+            sendEvent(withName: "playback-error", body: [
+                "error": error?.localizedDescription,
+                "message": error?.localizedDescription,
+                ])
+            return
+        }
+
+        sendEvent(withName: "playback-error", body: [
+            "error": e.localizedDescription,
+            "code": e.code,
+            "message": e.localizedDescription,
+            "domain": e.domain,
+        ])
+	}
+    
+    public func audioPlayer(seekTo seconds: Int, didFinish: Bool) {}
+    
+    public func audioPlayer(didUpdateDuration duration: Double) {}
+
+    public func audioPlayerResetAudioSession() {
+        // Reset the audio session category because there was a failure to play a track.
+        // If the category is not reset, it seems to behave like the default category
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+        } catch {
+            print("Failed to reset audio session category", error)
+        }
+    }
+    
+    private let isTesting = { () -> Bool in
+        if let _ = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] {
+            return true
+        } else if let testingEnv = ProcessInfo.processInfo.environment["DYLD_INSERT_LIBRARIES"] {
+            return testingEnv.contains("libXCTTargetBootstrapInject.dylib")
+        } else {
+            return false
+        }
+    }()
+    
+    
+    // MARK: - Required Methods
     
     override public static func requiresMainQueueSetup() -> Bool {
         return true;
