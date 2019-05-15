@@ -18,12 +18,9 @@ import com.guichaguri.trackplayer.service.Utils;
 import com.guichaguri.trackplayer.service.models.Track;
 import com.guichaguri.trackplayer.service.player.ExoPlayback;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.*;
 
 /**
  * @author Guichaguri
@@ -40,6 +37,7 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
     }
 
     @Override
+    @Nonnull
     public String getName() {
         return "TrackPlayerModule";
     }
@@ -237,8 +235,10 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
                 }
             }
 
-            if (indexes.size() > 0) {
+            if (!indexes.isEmpty()) {
                 binder.getPlayback().remove(indexes, callback);
+            } else {
+                callback.resolve(null);
             }
         });
     }
