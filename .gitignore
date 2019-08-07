@@ -19,6 +19,11 @@ android/local.properties
 gradle.properties
 android/*.iml
 
+android/.settings
+android/.project
+example/android/.settings
+example/android/.project
+
 # Windows
 
 windows/.vs/
