@@ -10,7 +10,7 @@ import Foundation
 import MediaPlayer
 import AVFoundation
 
-class Track: NSObject, AudioItem, InitialTiming, TimePitching, Authorizing {
+class Track: NSObject, AudioItem, InitialTiming, TimePitching, AssetOptionsProviding {
     let id: String
     let url: MediaURL
     
@@ -143,7 +143,7 @@ class Track: NSObject, AudioItem, InitialTiming, TimePitching, Authorizing {
         return .lowQualityZeroLatency
     }
     
-    // MARK: - Authorizing Protocol
+    // MARK: - AssetOptionsProviding Protocol
     
     func getAssetOptions() -> [String: Any] {
         if let headers = headers {
