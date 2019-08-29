@@ -52,3 +52,6 @@ xcuserdata/
 *.dSYM
 example/ios/Pods
 /ios/RNTrackPlayer.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+android/.settings
+.project
+example/android/.settings
