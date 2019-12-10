@@ -19,6 +19,11 @@ public class RNTrackPlayer: RCTEventEmitter {
     private lazy var player: QueuedAudioPlayer = {
         let player = QueuedAudioPlayer()
         player.bufferDuration = 1
+
+        // disable auto advance, so that we can control the order of
+        // operations in order to send accurate event data
+        player.automaticallyPlayNextSong = false
+
         return player
     }()
     
@@ -198,17 +203,25 @@ public class RNTrackPlayer: RCTEventEmitter {
         player.event.playbackEnd.addListener(self) { [weak self] reason in
             guard let `self` = self else { return }
 
-            if reason == .playedUntilEnd && self.player.nextItems.count == 0 {
-                self.sendEvent(withName: "playback-queue-ended", body: [
-                    "track": (self.player.currentItem as? Track)?.id,
-                    "position": self.player.currentTime,
-                    ])
-            } else if reason == .playedUntilEnd {
-               self.sendEvent(withName: "playback-track-changed", body: [
+            // only send these events for playback end when the track played to the end
+            if reason == .playedUntilEnd {
+                // nextTrack might be nil if there are no more, but still send the event
+                self.sendEvent(withName: "playback-track-changed", body: [
                     "track": (self.player.currentItem as? Track)?.id,
                     "position": self.player.currentTime,
                     "nextTrack": (self.player.nextItems.first as? Track)?.id,
                     ])
+                
+                // fire an event for the queue ending
+                if self.player.nextItems.count == 0 {
+                    self.sendEvent(withName: "playback-queue-ended", body: [
+                        "track": (self.player.currentItem as? Track)?.id,
+                        "position": self.player.currentTime,
+                        ])
+                } else {
+                    // go to the next track
+                    try? self.player.next() 
+                }
             }
         }
         
