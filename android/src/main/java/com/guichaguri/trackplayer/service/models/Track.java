@@ -19,6 +19,7 @@ import com.google.android.exoplayer2.upstream.*;
 import com.google.android.exoplayer2.util.Util;
 import com.guichaguri.trackplayer.service.Utils;
 import com.guichaguri.trackplayer.service.player.LocalPlayback;
+import com.guichaguri.trackplayer.service.player.CustomStartPositionMediaSource;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -64,6 +65,7 @@ public class Track {
     public String date;
     public String genre;
     public long duration;
+    public long initialTime;
     public Bundle originalItem;
 
     public RatingCompat rating;
@@ -102,6 +104,8 @@ public class Track {
                 headers.put(header, httpHeaders.getString(header));
             }
         }
+
+        initialTime = Utils.getInt(bundle,"initialTime", 0);
 
         setMetadata(context, bundle, ratingType);
 
@@ -217,9 +221,13 @@ public class Track {
             case SMOOTH_STREAMING:
                 return createSsSource(ds);
             default:
-                return new ProgressiveMediaSource.Factory(ds, new DefaultExtractorsFactory()
+                MediaSource progressiveMediaSource = new ProgressiveMediaSource.Factory(ds, new DefaultExtractorsFactory()
                         .setConstantBitrateSeekingEnabled(true))
                         .createMediaSource(uri);
+                
+                long startPositionMs = initialTime * 1000;
+                
+                return new CustomStartPositionMediaSource(progressiveMediaSource, startPositionMs);
         }
     }
 
