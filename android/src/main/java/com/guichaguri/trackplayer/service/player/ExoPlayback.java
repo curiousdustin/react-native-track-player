@@ -39,6 +39,7 @@ public abstract class ExoPlayback<T extends Player> implements EventListener, Me
     protected int lastKnownWindow = C.INDEX_UNSET;
     protected long lastKnownPosition = C.POSITION_UNSET;
     protected int previousState = PlaybackStateCompat.STATE_NONE;
+    protected float volumeMultiplier = 1.0F;
 
     public ExoPlayback(Context context, MusicManager manager, T player) {
         this.context = context;
@@ -143,7 +144,7 @@ public abstract class ExoPlayback<T extends Player> implements EventListener, Me
 
         player.stop(false);
         player.setPlayWhenReady(false);
-        player.seekTo(0,0);
+        player.seekTo(lastKnownWindow,0);
     }
 
     public void reset() {
@@ -167,14 +168,15 @@ public abstract class ExoPlayback<T extends Player> implements EventListener, Me
     }
 
     public long getDuration() {
-        long duration = player.getDuration();
+        Track current = getCurrentTrack();
 
-        if (duration == C.TIME_UNSET) {
-            Track current = getCurrentTrack();
-            duration = current != null ? current.duration : 0;
+        if (current != null && current.duration > 0) {
+            return current.duration;
         }
 
-        return duration;
+        long duration = player.getDuration();
+
+        return duration == C.TIME_UNSET ? 0 : duration;
     }
 
     public void seekTo(long time) {
@@ -184,9 +186,22 @@ public abstract class ExoPlayback<T extends Player> implements EventListener, Me
         player.seekTo(time);
     }
 
-    public abstract float getVolume();
+    public float getVolume() {
+        return getPlayerVolume() / volumeMultiplier;
+    }
 
-    public abstract void setVolume(float volume);
+    public void setVolume(float volume) {
+        setPlayerVolume(volume * volumeMultiplier);
+    }
+
+    public void setVolumeMultiplier(float multiplier) {
+        setPlayerVolume(getVolume() * multiplier);
+        this.volumeMultiplier = multiplier;
+    }
+
+    public abstract float getPlayerVolume();
+
+    public abstract void setPlayerVolume(float volume);
 
     public float getRate() {
         return player.getPlaybackParameters().speed;
@@ -199,7 +214,7 @@ public abstract class ExoPlayback<T extends Player> implements EventListener, Me
     public int getState() {
         switch(player.getPlaybackState()) {
             case Player.STATE_BUFFERING:
-                return PlaybackStateCompat.STATE_BUFFERING;
+                return player.getPlayWhenReady() ? PlaybackStateCompat.STATE_BUFFERING : PlaybackStateCompat.STATE_CONNECTING;
             case Player.STATE_ENDED:
                 return PlaybackStateCompat.STATE_STOPPED;
             case Player.STATE_IDLE:
@@ -228,7 +243,7 @@ public abstract class ExoPlayback<T extends Player> implements EventListener, Me
         Log.d(Utils.LOG, "onPositionDiscontinuity: " + reason);
 
         if(lastKnownWindow != player.getCurrentWindowIndex()) {
-            Track previous = lastKnownWindow == C.INDEX_UNSET ? null : queue.get(lastKnownWindow);
+            Track previous = lastKnownWindow == C.INDEX_UNSET || lastKnownWindow >= queue.size() ? null : queue.get(lastKnownWindow);
             Track next = getCurrentTrack();
 
             // Track changed because it ended

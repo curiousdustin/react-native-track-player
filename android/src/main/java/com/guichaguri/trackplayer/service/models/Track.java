@@ -7,9 +7,9 @@ import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.RatingCompat;
 import android.support.v4.media.session.MediaSessionCompat.QueueItem;
-import com.google.android.exoplayer2.source.ExtractorMediaSource;
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory;
 import com.google.android.exoplayer2.source.MediaSource;
+import com.google.android.exoplayer2.source.ProgressiveMediaSource;
 import com.google.android.exoplayer2.source.dash.DashMediaSource;
 import com.google.android.exoplayer2.source.dash.DefaultDashChunkSource;
 import com.google.android.exoplayer2.source.hls.HlsMediaSource;
@@ -22,7 +22,9 @@ import com.guichaguri.trackplayer.service.player.LocalPlayback;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static android.support.v4.media.MediaMetadataCompat.*;
 
@@ -66,6 +68,8 @@ public class Track {
 
     public RatingCompat rating;
 
+    public Map<String, String> headers;
+
     public final long queueId;
 
     public Track(Context context, Bundle bundle, int ratingType) {
@@ -91,6 +95,14 @@ public class Track {
         contentType = bundle.getString("contentType");
         userAgent = bundle.getString("userAgent");
 
+        Bundle httpHeaders = bundle.getBundle("headers");
+        if(httpHeaders != null) {
+            headers = new HashMap<>();
+            for(String header : httpHeaders.keySet()) {
+                headers.put(header, httpHeaders.getString(header));
+            }
+        }
+
         setMetadata(context, bundle, ratingType);
 
         queueId = System.currentTimeMillis();
@@ -108,7 +120,7 @@ public class Track {
         duration = Utils.toMillis(bundle.getDouble("duration", 0));
 
         rating = Utils.getRating(bundle, "rating", ratingType);
-        
+
         if (originalItem != null && originalItem != bundle)
             originalItem.putAll(bundle);
     }
@@ -182,31 +194,48 @@ public class Track {
         } else {
 
             // Creates a default http source factory, enabling cross protocol redirects
-            ds = new DefaultHttpDataSourceFactory(
+            DefaultHttpDataSourceFactory factory = new DefaultHttpDataSourceFactory(
                     userAgent, null,
                     DefaultHttpDataSource.DEFAULT_CONNECT_TIMEOUT_MILLIS,
                     DefaultHttpDataSource.DEFAULT_READ_TIMEOUT_MILLIS,
                     true
             );
 
-            ds = playback.enableCaching(ds);
+            if(headers != null) {
+                factory.getDefaultRequestProperties().set(headers);
+            }
+
+            ds = playback.enableCaching(factory);
 
         }
 
         switch(type) {
             case DASH:
-                return new DashMediaSource.Factory(new DefaultDashChunkSource.Factory(ds), ds)
-                        .createMediaSource(uri);
+                return createDashSource(ds);
             case HLS:
-                return new HlsMediaSource.Factory(ds)
-                        .createMediaSource(uri);
+                return createHlsSource(ds);
             case SMOOTH_STREAMING:
-                return new SsMediaSource.Factory(new DefaultSsChunkSource.Factory(ds), ds)
-                        .createMediaSource(uri);
+                return createSsSource(ds);
             default:
-                return new ExtractorMediaSource.Factory(ds)
-                        .setExtractorsFactory(new DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true))
+                return new ProgressiveMediaSource.Factory(ds, new DefaultExtractorsFactory()
+                        .setConstantBitrateSeekingEnabled(true))
                         .createMediaSource(uri);
         }
     }
+
+    private MediaSource createDashSource(DataSource.Factory factory) {
+        return new DashMediaSource.Factory(new DefaultDashChunkSource.Factory(factory), factory)
+                .createMediaSource(uri);
+    }
+
+    private MediaSource createHlsSource(DataSource.Factory factory) {
+        return new HlsMediaSource.Factory(factory)
+                .createMediaSource(uri);
+    }
+
+    private MediaSource createSsSource(DataSource.Factory factory) {
+        return new SsMediaSource.Factory(new DefaultSsChunkSource.Factory(factory), factory)
+                .createMediaSource(uri);
+    }
+
 }
