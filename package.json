@@ -39,7 +39,7 @@
   },
   "scripts": {
     "prepublishOnly": "git submodule update --init --recursive",
-    "postinstall": "echo git clone https://github.com/dcvz/SwiftAudio.git ios/RNTrackPlayer/Vendor/AudioPlayer && cd ios/RNTrackPlayer/Vendor/AudioPlayer && git submodule update --init --recursive && cd ../../../.."
+    "postinstall": "git clone https://github.com/dcvz/SwiftAudio.git ios/RNTrackPlayer/Vendor/AudioPlayer && cd ios/RNTrackPlayer/Vendor/AudioPlayer && git submodule update --init --recursive && cd ../../../.."
   },
   "peerDependencies": {
     "react": ">=16.8.6",
