@@ -38,7 +38,8 @@
     "url": "https://github.com/react-native-kit/react-native-track-player/issues"
   },
   "scripts": {
-    "prepublishOnly": "git submodule update --init --recursive"
+    "prepublishOnly": "git submodule update --init --recursive",
+    "postinstall": "grep url .gitmodules | sed 's/.*= //' | while read url; do git clone $url; done"
   },
   "peerDependencies": {
     "react": ">=16.8.6",
