@@ -2,26 +2,26 @@
 //  RNTrackPlayerAudioPlayer.swift
 //  RNTrackPlayer
 //
-//  Created by Dustin Bahr on 10/04/2020.
+//  Created by Dustin Bahr on 24/04/2020.
 //
 
 import Foundation
 import MediaPlayer
 
 /**
- An audio player that sends React Native events at appropriate times.
+* An audio player that sends React Native events at appropriate times.
+*
+* This custom player was implemented to overcome issues that are caused by the
+* asynchronous events emitted by SwiftAudio.
+*
+* Because these events are asynchronous, properties such as currentItem did not
+* always contain the expected values. This led to events being sent to React
+* Native with incorrect information.
+*
+* Additionally overriding the behavior of enableRemoteCommands fixes issues with
+* lock screen controls.
+*/
 
- This custom player was implemented to overcome issues that are caused by the 
- asynchronous events emitted by SwiftAudio.
-
- Because these events are asynchronous, properties such as currentItem did not
- always contain the expected values. This led to events being sent to React Native
- with incorrect information.
-
- Additionally for some reason reacting to asynchronous events by trying to go to
- the next track, would sometimes cause the controls on the lock screen to behave
- poorly, and the queue to not advance properly.
- */
 public class RNTrackPlayerAudioPlayer: QueuedAudioPlayer {
 
 	public var reactEventEmitter: RCTEventEmitter
@@ -45,47 +45,6 @@ public class RNTrackPlayerAudioPlayer: QueuedAudioPlayer {
 	public init(reactEventEmitter: RCTEventEmitter) {
         self.reactEventEmitter = reactEventEmitter
 		super.init()
-    }
-
-	// MARK: - Player Actions
-    
-	// Override the load method so that we can control if enableRemoteCommands is called.
-
-    /**
-     Load an AudioItem into the manager.
-     
-     - parameter item: The AudioItem to load. The info given in this item is the one used for the InfoCenter.
-     - parameter playWhenReady: Immediately start playback when the item is ready. Default is `true`. If you disable this you have to call play() or togglePlay() when the `state` switches to `ready`.
-     */
-    public override func load(item: AudioItem, playWhenReady: Bool = true) throws {
-        let url: URL
-        switch item.getSourceType() {
-        case .stream:
-            if let itemUrl = URL(string: item.getSourceUrl()) {
-                url = itemUrl
-            }
-            else {
-                throw APError.LoadError.invalidSourceUrl(item.getSourceUrl())
-            }
-        case .file:
-            url = URL(fileURLWithPath: item.getSourceUrl())
-        }
-        
-        wrapper.load(from: url,
-                     playWhenReady: playWhenReady,
-                     initialTime: (item as? InitialTiming)?.getInitialTime(),
-                     options:(item as? AssetOptionsProviding)?.getAssetOptions())
-        
-        self._currentItem = item
-        
-        if (automaticallyUpdateNowPlayingInfo) {
-            self.loadNowPlayingMetaValues()
-        }
-
-		// This is the only change from the original AudioPlayer
-        if (item is RemoteCommandable) {
-            enableRemoteCommands(forItem: item)
-        }
     }
 
 	// MARK: - AVPlayerWrapperDelegate
@@ -118,4 +77,27 @@ public class RNTrackPlayerAudioPlayer: QueuedAudioPlayer {
 		super.AVWrapperItemDidPlayToEndTime()
     }
 
+	// MARK: - Remote Command Center
+    
+	/**
+	* Override this method in order to prevent re-enabling remote commands every
+	* time a track loads.
+	*
+	* React Native Track Player does not use this feature of SwiftAudio which
+	* allows defining remote commands per track.
+	*
+	* Because of the asychronous nature of controlling the queue from the JS
+	* side, re-enabling commands in this way causes the lock screen controls to
+	* behave poorly.
+	*/
+    override func enableRemoteCommands(forItem item: AudioItem) {
+        if let item = item as? RemoteCommandable {
+            self.enableRemoteCommands(item.getCommands())
+        }
+		else {
+			// React Native Track Player does this manually in
+			// RNTrackPlayer.updateOptions()
+			// self.enableRemoteCommands(remoteCommands)
+        }
+    }
 }
