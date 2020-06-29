@@ -91,7 +91,7 @@ class Track: NSObject, AudioItem, InitialTiming, TimePitching, AssetOptionsProvi
     // MARK: - AudioItem Protocol
     
     func getSourceUrl() -> String {
-        return url.value.absoluteString
+        return url.isLocal ? url.value.path : url.value.absoluteString
     }
     
     func getArtist() -> String? {

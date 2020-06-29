@@ -24,7 +24,7 @@ permalink: /platform-support/
 | ------- | :-----: | :-: | :-----: |
 | Regular Streams | ✓ | ✓ | ✓ |
 | DASH | ✓ | ✗ | ✓ |
-| HLS | ✓ | ✗ | ✓ |
+| HLS | ✓ | ✓ | ✓ |
 | SmoothStreaming | ✓ | ✗ | ✗ |
 
 ## Casting
@@ -35,7 +35,7 @@ permalink: /platform-support/
 | Miracast/DLNA | ✗ | ✗ | ✗ |
 | AirPlay | ✗ | ✗ | ✗ |
 
-¹: Read more in [Google Cast Integration](https://react-native-kit.github.io/react-native-track-player/cast/)
+¹: Google Cast support has been moved to [react-native-track-casting (WIP)](https://github.com/react-native-kit/react-native-track-casting) which can be used in combination with `react-native-track-player`.
 
 ## Miscellaneous
 
@@ -100,3 +100,4 @@ permalink: /platform-support/
 | `playback-track-changed` | ✓ | ✓ | ✓ |
 | `playback-queue-ended` | ✓ | ✓ | ✓ |
 | `playback-error` | ✓ | ✓ | ✓ |
+| `playback-metadata-received` | ✓ | ✗ | ✗ |

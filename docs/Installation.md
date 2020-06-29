@@ -19,7 +19,12 @@ npm install --save react-native-track-player
 yarn add react-native-track-player
 ```
 
-**2. Install react-native-swift to configure your iOS project to use the module correctly**
+**2. (Optional) Install react-native-swift**
+
+If you are not already using any other swift based modules in your app, install and run react-native-swift to configure your iOS project to support swift.
+
+### Install react-native-swift
+
 ```
 npm install --save react-native-swift
 ```
@@ -29,6 +34,12 @@ yarn add react-native-swift
 ```
 
 After installing it, you will need to link it. **Requires project to use Swift 4.2**
+
+### Run react-native-swift
+
+```
+react-native swiftify
+```
 
 ## Automatic Link
 Run the command below and the module will be automatically linked
@@ -81,6 +92,8 @@ public class MainApplication extends Application implements ReactApplication {
 ```
 
 ### iOS
+Make sure the iOS platform target is set to 10.0 or higher in your app's podfile (`your-app/ios/podfile`): `platform :ios, '10.0'`
+
 In Xcode:
 1. Add RNTrackPlayer.xcodeproj to Libraries.
 2. Add libRNTrackPlayer.a to Link Binary With Libraries under Build Phases.
